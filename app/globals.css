@@ -129,3 +129,15 @@
   .phase-foot{align-items:flex-start;flex-direction:column}
   .phase-foot span{text-align:left}
 }
+
+
+/* Curva S: desvio visual entre planejado e projetado */
+.band-positive{fill:url(#hatch-green)}
+.band-negative{fill:url(#hatch-red)}
+.band-pos-key,.band-neg-key{display:inline-block;width:22px;height:10px;margin-right:7px;vertical-align:middle;border-radius:2px}
+.band-pos-key{background:repeating-linear-gradient(45deg,rgba(185,243,74,.45) 0 4px,rgba(185,243,74,.12) 4px 8px);border:1px solid rgba(185,243,74,.35)}
+.band-neg-key{background:repeating-linear-gradient(45deg,rgba(255,102,97,.45) 0 4px,rgba(255,102,97,.12) 4px 8px);border:1px solid rgba(255,102,97,.35)}
+
+@media(max-width:650px){
+  .curve-legend{flex-wrap:wrap;min-width:590px}
+}
