@@ -13,16 +13,43 @@ function plannedCurve(tasks:Task[],start:string,end:string){
     out.push({date:new Date(x),value:leaf.length?sum/leaf.length*100:0})
   } return out
 }
+function projectedCurve(data:DashboardData){
+  const sorted=[...data.snapshots].sort((a,b)=>dt(a.snapshot_date).getTime()-dt(b.snapshot_date).getTime())
+  if(!sorted.length)return []
+  const start=dt(data.project.start_date).getTime(),end=dt(data.project.end_date).getTime(),span=Math.max(DAY,end-start)
+  const last=sorted[sorted.length-1],lastTime=dt(last.snapshot_date).getTime(),lastValue=Number(last.actual_progress)
+  let rate=0
+  if(sorted.length>=2){
+    const first=sorted[0],firstTime=dt(first.snapshot_date).getTime(),firstValue=Number(first.actual_progress)
+    rate=(lastValue-firstValue)/Math.max(DAY,lastTime-firstTime)
+  }else{
+    rate=lastValue/Math.max(DAY,lastTime-start)
+  }
+  const out=[]
+  for(let i=0;i<=12;i++){
+    const x=start+span*i/12
+    let value=0
+    if(x<=lastTime){
+      const previous=[...sorted].reverse().find(s=>dt(s.snapshot_date).getTime()<=x)
+      if(previous)value=Number(previous.actual_progress)
+      else value=Math.max(0,lastValue-rate*(lastTime-x))
+    }else value=lastValue+rate*(x-lastTime)
+    out.push({date:new Date(x),value:Math.max(0,Math.min(100,value))})
+  }
+  return out
+}
 function Curve({data}:{data:DashboardData}){
-  const planned=plannedCurve(data.tasks,data.project.start_date,data.project.end_date); const w=900,h=230,p=30
+  const planned=plannedCurve(data.tasks,data.project.start_date,data.project.end_date),projected=projectedCurve(data); const w=900,h=230,p=30
   const min=dt(data.project.start_date).getTime(),max=dt(data.project.end_date).getTime(),span=Math.max(DAY,max-min)
   const xy=(time:number,val:number)=>({x:p+(time-min)/span*(w-2*p),y:h-p-(val/100)*(h-2*p)})
-  const path=planned.map((v,i)=>{const q=xy(v.date.getTime(),v.value);return (i?'L':'M')+q.x.toFixed(1)+' '+q.y.toFixed(1)}).join(' ')
-  return <div className="curve-wrap"><svg className="curve" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Curva S planejada e avanço registrado">
+  const toPath=(points:{date:Date,value:number}[])=>points.map((v,i)=>{const q=xy(v.date.getTime(),v.value);return (i?'L':'M')+q.x.toFixed(1)+' '+q.y.toFixed(1)}).join(' ')
+  const plannedPath=toPath(planned),projectedPath=toPath(projected)
+  return <div className="curve-wrap"><svg className="curve" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Curva S planejada, avanço real e projeção presumida">
     {[0,25,50,75,100].map(v=><g key={v}><line x1={p} x2={w-p} y1={xy(min,v).y} y2={xy(min,v).y} className="grid-line"/><text x={4} y={xy(min,v).y+4}>{v}%</text></g>)}
-    <path d={path} className="planned-line"/>
-    {data.snapshots.map(s=>{const q=xy(dt(s.snapshot_date).getTime(),Number(s.actual_progress));return <g key={s.id}><circle cx={q.x} cy={q.y} r="6" className="actual-dot"/><text x={q.x+9} y={q.y-9} className="point-label">Real {Number(s.actual_progress).toFixed(0)}%</text></g>})}
-  </svg><div className="curve-legend"><span><i className="line-key"/>Planejado calculado pelas atividades</span><span><i className="dot-key"/>Medições reais registradas</span></div></div>
+    <path d={plannedPath} className="planned-line"/>
+    {projected.length>0&&<path d={projectedPath} className="projected-line"/>}
+    {data.snapshots.map(s=>{const q=xy(dt(s.snapshot_date).getTime(),Number(s.actual_progress));return <g key={s.id}><circle cx={q.x} cy={q.y} r="6" className="actual-dot"/><text x={q.x+9} y={q.y-9} className="point-label">{Number(s.actual_progress).toFixed(0)}%</text></g>})}
+  </svg><div className="curve-legend"><span><i className="line-key"/>Esperado / planejado</span><span><i className="projected-key"/>Presumido / projeção</span><span><i className="dot-key"/>Avanço real medido</span></div></div>
 }
 
 export function ProjectDashboard({data}:{data:DashboardData}){
@@ -46,7 +73,7 @@ export function ProjectDashboard({data}:{data:DashboardData}){
     <section className="section"><div className="section-head"><div><span className="eyebrow">VISÃO POR FRENTE</span><h2>Avanço das etapas</h2></div><span className="muted">Os percentuais abaixo vieram do arquivo de referência.</span></div>
       <div className="phase-grid">{phases.map((p,i)=><article className="phase-card" key={p.id}><div className="phase-number">{String(i+1).padStart(2,'0')}</div><h3>{p.name}</h3><div className="bar"><i style={{width:Number(p.progress)+'%'}}/></div><div className="phase-foot"><b>{Number(p.progress).toFixed(0)}%</b><span>{fmt(p.planned_start)} — {fmt(p.planned_end)}</span></div></article>)}</div></section>
 
-    <section className="section chart-panel" id="curva"><div className="section-head"><div><span className="eyebrow">CONTROLE DE PRAZO</span><h2>Curva S</h2></div><span className="muted">Planejado calculado pela distribuição das atividades; o real aparece apenas quando há medição registrada.</span></div><Curve data={data}/></section>
+    <section className="section chart-panel" id="curva"><div className="section-head"><div><span className="eyebrow">CONTROLE DE PRAZO</span><h2>Curva S</h2></div><span className="muted">Planejado x avanço real x tendência projetada, calculada pelo ritmo das medições registradas.</span></div><Curve data={data}/></section>
 
     <section className="section gantt-section" id="cronograma"><div className="section-head"><div><span className="eyebrow">LINHA DO TEMPO</span><h2>Gantt simplificado</h2></div><div className="legend"><span><i className="dot active"/>Com avanço</span><span><i className="dot planned"/>Planejada</span><span><i className="dot summary"/>Resumo</span></div></div>
       <div className="gantt"><div className="gantt-head"><div>ESTRUTURA DO PROJECT</div><div className="gantt-scale"><span>{fmt(project.start_date)}</span><span>período de referência</span><span>{fmt(project.end_date)}</span></div></div>
