@@ -101,12 +101,12 @@ function Curve({data}:{data:DashboardData}){
         <line x1="0" y1="0" x2="0" y2="18" stroke="rgba(255,102,97,.72)" strokeWidth="5"/>
       </pattern>
     </defs>
-    {[0,25,50,75,100].map(v=><g key={v}><line x1={p} x2={w-p} y1={xy(min,v).y} y2={xy(min,v).y} className="grid-line"/><text x={4} y={xy(min,v).y+4}>{v}%</text></g>})}
+    {[0,25,50,75,100].map(v=><g key={v}><line x1={p} x2={w-p} y1={xy(min,v).y} y2={xy(min,v).y} className="grid-line"/><text x={4} y={xy(min,v).y+4}>{v}%</text></g>)}
     {bands.positive.map((path,i)=><path key={'positive-'+i} d={path} className="band-positive"/>)}
     {bands.negative.map((path,i)=><path key={'negative-'+i} d={path} className="band-negative"/>)}
     <path d={plannedPath} className="planned-line"/>
     {projected.length>0&&<path d={projectedPath} className="projected-line"/>}
-    {data.snapshots.map(s=>{const q=xy(dt(s.snapshot_date).getTime(),Number(s.actual_progress));return <g key={s.id}><circle cx={q.x} cy={q.y} r="6" className="actual-dot"/><text x={q.x+9} y={q.y-9} className="point-label">{Number(s.actual_progress).toFixed(0)}%</text></g>)}
+    {data.snapshots.map(s=>{const q=xy(dt(s.snapshot_date).getTime(),Number(s.actual_progress));return <g key={s.id}><circle cx={q.x} cy={q.y} r="6" className="actual-dot"/><text x={q.x+9} y={q.y-9} className="point-label">{Number(s.actual_progress).toFixed(0)}%</text></g>})}
   </svg><div className="curve-legend"><span><i className="line-key"/>Esperado / planejado</span><span><i className="projected-key"/>Presumido / projeção</span><span><i className="band-pos-key"/>Acima do previsto</span><span><i className="band-neg-key"/>Abaixo do previsto</span><span><i className="dot-key"/>Avanço real medido</span></div></div>
 }
 
