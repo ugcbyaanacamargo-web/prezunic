@@ -38,18 +38,68 @@ function projectedCurve(data:DashboardData){
   }
   return out
 }
+type CurveSample={time:number,planned:number,projected:number}
+
+function buildBandPolygons(samples:CurveSample[],xy:(time:number,val:number)=>{x:number,y:number}){
+  const positive:string[]=[]; const negative:string[]=[]
+  const poly=(aTop:{x:number,y:number},bTop:{x:number,y:number},bBottom:{x:number,y:number},aBottom:{x:number,y:number}) =>
+    `M ${aTop.x.toFixed(1)} ${aTop.y.toFixed(1)} L ${bTop.x.toFixed(1)} ${bTop.y.toFixed(1)} L ${bBottom.x.toFixed(1)} ${bBottom.y.toFixed(1)} L ${aBottom.x.toFixed(1)} ${aBottom.y.toFixed(1)} Z`
+
+  for(let i=0;i<samples.length-1;i++){
+    const a=samples[i],b=samples[i+1]
+    const da=a.projected-a.planned,db=b.projected-b.planned
+    const aPlan=xy(a.time,a.planned),bPlan=xy(b.time,b.planned),aProj=xy(a.time,a.projected),bProj=xy(b.time,b.projected)
+
+    if((da>=0&&db>=0)||(da<=0&&db<=0)){
+      if(Math.abs(da)<0.0001&&Math.abs(db)<0.0001)continue
+      const path=poly(aProj,bProj,bPlan,aPlan)
+      if(da>=0&&db>=0)positive.push(path); else negative.push(path)
+      continue
+    }
+
+    const t=da/(da-db)
+    const crossTime=a.time+(b.time-a.time)*t
+    const crossValue=(a.planned+(b.planned-a.planned)*t+a.projected+(b.projected-a.projected)*t)/2
+    const c=xy(crossTime,crossValue)
+
+    if(da>0){
+      positive.push(`M ${aProj.x.toFixed(1)} ${aProj.y.toFixed(1)} L ${c.x.toFixed(1)} ${c.y.toFixed(1)} L ${aPlan.x.toFixed(1)} ${aPlan.y.toFixed(1)} Z`)
+      negative.push(`M ${c.x.toFixed(1)} ${c.y.toFixed(1)} L ${bProj.x.toFixed(1)} ${bProj.y.toFixed(1)} L ${bPlan.x.toFixed(1)} ${bPlan.y.toFixed(1)} Z`)
+    }else{
+      negative.push(`M ${aProj.x.toFixed(1)} ${aProj.y.toFixed(1)} L ${c.x.toFixed(1)} ${c.y.toFixed(1)} L ${aPlan.x.toFixed(1)} ${aPlan.y.toFixed(1)} Z`)
+      positive.push(`M ${c.x.toFixed(1)} ${c.y.toFixed(1)} L ${bProj.x.toFixed(1)} ${bProj.y.toFixed(1)} L ${bPlan.x.toFixed(1)} ${bPlan.y.toFixed(1)} Z`)
+    }
+  }
+  return {positive,negative}
+}
+
 function Curve({data}:{data:DashboardData}){
   const planned=plannedCurve(data.tasks,data.project.start_date,data.project.end_date),projected=projectedCurve(data); const w=900,h=230,p=30
   const min=dt(data.project.start_date).getTime(),max=dt(data.project.end_date).getTime(),span=Math.max(DAY,max-min)
   const xy=(time:number,val:number)=>({x:p+(time-min)/span*(w-2*p),y:h-p-(val/100)*(h-2*p)})
   const toPath=(points:{date:Date,value:number}[])=>points.map((v,i)=>{const q=xy(v.date.getTime(),v.value);return (i?'L':'M')+q.x.toFixed(1)+' '+q.y.toFixed(1)}).join(' ')
   const plannedPath=toPath(planned),projectedPath=toPath(projected)
-  return <div className="curve-wrap"><svg className="curve" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Curva S planejada, avanço real e projeção presumida">
+  const samples:CurveSample[]=planned.map((item,i)=>({time:item.date.getTime(),planned:item.value,projected:projected[i]?.value??item.value}))
+  const bands=buildBandPolygons(samples,xy)
+
+  return <div className="curve-wrap"><svg className="curve" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Curva S planejada, avanço real, projeção e desvio positivo ou negativo">
+    <defs>
+      <pattern id="hatch-green" patternUnits="userSpaceOnUse" width="12" height="12" patternTransform="rotate(45)">
+        <rect width="12" height="12" fill="rgba(185,243,74,.10)"/>
+        <line x1="0" y1="0" x2="0" y2="12" stroke="rgba(185,243,74,.55)" strokeWidth="4"/>
+      </pattern>
+      <pattern id="hatch-red" patternUnits="userSpaceOnUse" width="12" height="12" patternTransform="rotate(45)">
+        <rect width="12" height="12" fill="rgba(255,102,97,.10)"/>
+        <line x1="0" y1="0" x2="0" y2="12" stroke="rgba(255,102,97,.55)" strokeWidth="4"/>
+      </pattern>
+    </defs>
     {[0,25,50,75,100].map(v=><g key={v}><line x1={p} x2={w-p} y1={xy(min,v).y} y2={xy(min,v).y} className="grid-line"/><text x={4} y={xy(min,v).y+4}>{v}%</text></g>)}
+    {bands.positive.map((path,i)=><path key={'positive-'+i} d={path} className="band-positive"/>)}
+    {bands.negative.map((path,i)=><path key={'negative-'+i} d={path} className="band-negative"/>)}
     <path d={plannedPath} className="planned-line"/>
     {projected.length>0&&<path d={projectedPath} className="projected-line"/>}
-    {data.snapshots.map(s=>{const q=xy(dt(s.snapshot_date).getTime(),Number(s.actual_progress));return <g key={s.id}><circle cx={q.x} cy={q.y} r="6" className="actual-dot"/><text x={q.x+9} y={q.y-9} className="point-label">{Number(s.actual_progress).toFixed(0)}%</text></g>})}
-  </svg><div className="curve-legend"><span><i className="line-key"/>Esperado / planejado</span><span><i className="projected-key"/>Presumido / projeção</span><span><i className="dot-key"/>Avanço real medido</span></div></div>
+    {data.snapshots.map(s=>{const q=xy(dt(s.snapshot_date).getTime(),Number(s.actual_progress));return <g key={s.id}><circle cx={q.x} cy={q.y} r="6" className="actual-dot"/><text x={q.x+9} y={q.y-9} className="point-label">{Number(s.actual_progress).toFixed(0)}%</text></g>)}
+  </svg><div className="curve-legend"><span><i className="line-key"/>Esperado / planejado</span><span><i className="projected-key"/>Presumido / projeção</span><span><i className="band-pos-key"/>Acima do previsto</span><span><i className="band-neg-key"/>Abaixo do previsto</span><span><i className="dot-key"/>Avanço real medido</span></div></div>
 }
 
 export function ProjectDashboard({data}:{data:DashboardData}){
