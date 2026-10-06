@@ -92,8 +92,16 @@ function Curve({data}:{data:DashboardData}){
         <rect width="12" height="12" fill="rgba(255,102,97,.10)"/>
         <line x1="0" y1="0" x2="0" y2="12" stroke="rgba(255,102,97,.55)" strokeWidth="4"/>
       </pattern>
+      <pattern id="hatch-green-mobile" patternUnits="userSpaceOnUse" width="18" height="18" patternTransform="rotate(45)">
+        <rect width="18" height="18" fill="rgba(185,243,74,.11)"/>
+        <line x1="0" y1="0" x2="0" y2="18" stroke="rgba(185,243,74,.72)" strokeWidth="5"/>
+      </pattern>
+      <pattern id="hatch-red-mobile" patternUnits="userSpaceOnUse" width="18" height="18" patternTransform="rotate(45)">
+        <rect width="18" height="18" fill="rgba(255,102,97,.11)"/>
+        <line x1="0" y1="0" x2="0" y2="18" stroke="rgba(255,102,97,.72)" strokeWidth="5"/>
+      </pattern>
     </defs>
-    {[0,25,50,75,100].map(v=><g key={v}><line x1={p} x2={w-p} y1={xy(min,v).y} y2={xy(min,v).y} className="grid-line"/><text x={4} y={xy(min,v).y+4}>{v}%</text></g>)}
+    {[0,25,50,75,100].map(v=><g key={v}><line x1={p} x2={w-p} y1={xy(min,v).y} y2={xy(min,v).y} className="grid-line"/><text x={4} y={xy(min,v).y+4}>{v}%</text></g>})}
     {bands.positive.map((path,i)=><path key={'positive-'+i} d={path} className="band-positive"/>)}
     {bands.negative.map((path,i)=><path key={'negative-'+i} d={path} className="band-negative"/>)}
     <path d={plannedPath} className="planned-line"/>
